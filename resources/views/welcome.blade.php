@@ -88,7 +88,10 @@
                 <a href="#projects" class="px-8 py-4 rounded-full bg-zinc-100 hover:bg-white text-black font-semibold transition-all shadow-[0_0_20px_rgba(255,255,255,0.05)] hover:shadow-[0_0_30px_rgba(255,255,255,0.1)] hover:scale-105">
                     View My Work
                 </a>
-                <a href="#contact" class="px-8 py-4 rounded-full bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-white font-semibold transition-all hover:scale-105">
+                <a href="{{ route('chat.country') }}" class="px-8 py-4 rounded-full bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-white font-semibold transition-all hover:scale-105">
+                    Private Chat
+                </a>
+                <a href="#contact-form" class="px-8 py-4 rounded-full bg-gradient-to-r from-sky-500 to-indigo-500 hover:from-sky-600 hover:to-indigo-600 text-white font-semibold transition-all hover:scale-105 shadow-[0_0_20px_rgba(59,130,246,0.3)] hover:shadow-[0_0_30px_rgba(59,130,246,0.4)]">
                     Contact Me
                 </a>
             </div>
@@ -302,7 +305,7 @@
 
                     <!-- Success and errors are now handled by SweetAlert2 Popups below -->
 
-                    <form class="text-left space-y-5" action="{{ route('contact.store') }}" method="POST">
+                    <form id="contact-form" class="text-left space-y-5" action="{{ route('contact.store') }}" method="POST">
                         @csrf
                         <div>
                             <label for="name" class="block text-[13px] font-medium text-zinc-300 mb-1.5">Name</label>
@@ -383,5 +386,164 @@
     </script>
     @endif
 
+    <!-- WhatsApp Widget -->
+    <div id="wa-widget" class="fixed bottom-6 right-6 z-[100] flex flex-col items-end hidden transition-all">
+        <div class="bg-[#111b21] w-[340px] md:w-96 rounded-2xl shadow-2xl overflow-hidden border border-zinc-700/50 flex flex-col h-[500px] max-h-[80vh]">
+            <div class="bg-[#202c33] p-4 flex items-center justify-between border-b border-zinc-700/50 shadow-md z-10 w-full shrink-0">
+                <div class="flex items-center space-x-3 w-full max-w-[200px]">
+                    <div class="w-10 h-10 shrink-0 bg-emerald-600 rounded-full flex items-center justify-center text-white overflow-hidden">
+                        <svg class="w-6 h-6 shrink-0" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z"/></svg>
+                    </div>
+                    <div class="min-w-0 overflow-hidden flex-1 pl-1">
+                        <h3 class="text-white font-semibold text-[15px] truncate max-w-full block" title="Radhey Krishna">Radhey Krishna</h3>
+                        <p class="text-emerald-500 text-xs block">Online</p>
+                    </div>
+                </div>
+                <button id="close-wa-btn" class="text-zinc-400 hover:text-white transition-colors shrink-0 p-2">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                </button>
+            </div>
+            <div id="wa-messages" class="flex-1 min-h-0 overflow-y-auto p-4 space-y-3 bg-[#0b141a]" style="background-image: url('https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png'); background-blend-mode: overlay; background-color: rgba(11,20,26,0.9);">
+                <!-- Messages injected here -->
+            </div>
+            <div class="bg-[#202c33] p-3 flex items-center space-x-2 shrink-0">
+                <input type="text" id="wa-input" placeholder="Type a message" class="flex-1 w-full min-w-0 bg-[#2a3942] text-white text-[15px] placeholder-zinc-400 rounded-lg px-4 py-2.5 focus:outline-none border border-transparent focus:border-emerald-600/50 transition-colors" autocomplete="off">
+                <button id="wa-send" class="w-11 h-11 shrink-0 bg-emerald-600 rounded-full flex items-center justify-center text-white hover:bg-emerald-500 transition-colors disabled:opacity-50">
+                    <svg class="w-5 h-5 translate-x-[1px]" fill="currentColor" viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const toggleBtns = document.querySelectorAll('a[href="#contact"]:not([href*="chat.country"])');
+            const widget = document.getElementById('wa-widget');
+            const closeBtn = document.getElementById('close-wa-btn');
+            const messagesDiv = document.getElementById('wa-messages');
+            const inputField = document.getElementById('wa-input');
+            const sendBtn = document.getElementById('wa-send');
+
+            let deviceId = localStorage.getItem('chat_device_id');
+            if (!deviceId) {
+                deviceId = 'guest_' + Math.random().toString(36).substr(2, 9);
+                localStorage.setItem('chat_device_id', deviceId);
+            }
+
+            let pollInterval = null;
+
+            toggleBtns.forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    e.preventDefault(); 
+                    widget.classList.remove('hidden');
+                    fetchMessages();
+                    if(!pollInterval) {
+                        pollInterval = setInterval(fetchMessages, 3000);
+                    }
+                });
+            });
+
+            closeBtn.addEventListener('click', () => {
+                widget.classList.add('hidden');
+                if(pollInterval) {
+                    clearInterval(pollInterval);
+                    pollInterval = null;
+                }
+            });
+
+            // Click outside to close functionality
+            document.addEventListener('click', (e) => {
+                if (widget.classList.contains('hidden')) return;
+                
+                const isClickInsideWidget = widget.contains(e.target);
+                const isClickOnToggleButton = Array.from(toggleBtns).some(btn => btn.contains(e.target));
+                
+                if (!isClickInsideWidget && !isClickOnToggleButton) {
+                    widget.classList.add('hidden');
+                    if(pollInterval) {
+                        clearInterval(pollInterval);
+                        pollInterval = null;
+                    }
+                }
+            });
+
+            function renderMessages(messages) {
+                if(messages.length === 0) {
+                   messagesDiv.innerHTML = `
+                       <div class="flex justify-center mb-4">
+                           <span class="bg-[#182229] text-zinc-400 text-xs px-3 py-1 rounded-md shadow-sm border border-zinc-700/30">Connect with me directly via WhatsApp Chat</span>
+                       </div>
+                   `;
+                   return;
+                }
+
+                let isAtBottom = messagesDiv.scrollHeight - messagesDiv.scrollTop <= messagesDiv.clientHeight + 50;
+
+                const html = messages.map(m => {
+                    const isMine = !m.is_admin;
+                    const time = new Date(m.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+                    return `
+                        <div class="flex ${isMine ? 'justify-end' : 'justify-start'} w-full">
+                            <div class="${isMine ? 'bg-[#005c4b]' : 'bg-[#202c33]'} text-[#e9edef] max-w-[85%] rounded-lg px-3 py-1.5 shadow-sm content-block">
+                                <p class="text-[14px] leading-relaxed" style="word-break: break-word;">${m.message.replace(/</g, "&lt;").replace(/>/g, "&gt;")}</p>
+                                <span class="text-[10px] text-zinc-400 block text-right mt-1 shrink-0">${time}</span>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+                
+                messagesDiv.innerHTML = html;
+                
+                if(isAtBottom) {
+                    messagesDiv.scrollTop = messagesDiv.scrollHeight;
+                }
+            }
+
+            async function fetchMessages() {
+                try {
+                    const res = await fetch('/chat/messages', {
+                        headers: { 'X-Device-Id': deviceId, 'Accept': 'application/json' }
+                    });
+                    const data = await res.json();
+                    renderMessages(data.messages || []);
+                } catch (e) { console.error('Chat error', e); }
+            }
+
+            async function sendMessage() {
+                const text = inputField.value.trim();
+                if (!text) return;
+
+                inputField.value = '';
+                inputField.disabled = true;
+                sendBtn.disabled = true;
+
+                try {
+                    const res = await fetch('/chat/message', {
+                        method: 'POST',
+                        headers: { 
+                            'Content-Type': 'application/json',
+                            'Accept': 'application/json',
+                            'X-Device-Id': deviceId 
+                        },
+                        body: JSON.stringify({ message: text })
+                    });
+                    
+                    messagesDiv.scrollTop = messagesDiv.scrollHeight;
+                    await fetchMessages();
+                } catch (e) {
+                    console.error('Failed to send', e);
+                } finally {
+                    inputField.disabled = false;
+                    sendBtn.disabled = false;
+                    inputField.focus();
+                }
+            }
+
+            sendBtn.addEventListener('click', sendMessage);
+            inputField.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') sendMessage();
+            });
+        });
+    </script>
 </body>
 </html>
