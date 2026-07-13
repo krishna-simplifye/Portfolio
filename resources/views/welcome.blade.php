@@ -59,8 +59,11 @@
                 <a href="#skills" class="text-sm font-medium text-zinc-400 hover:text-white transition-colors">Expertise</a>
                 <a href="#projects" class="text-sm font-medium text-zinc-400 hover:text-white transition-colors">Projects</a>
             </div>
-            <div>
-                <a href="#contact" class="px-5 py-2.5 text-sm font-semibold rounded-full bg-white/5 hover:bg-white/10 border border-white/10 transition-all text-white backdrop-blur-md">Let's Talk</a>
+            <div class="relative">
+                <a href="#contact" class="px-5 py-2.5 text-sm font-semibold rounded-full bg-white/5 hover:bg-white/10 border border-white/10 transition-all text-white backdrop-blur-md flex items-center gap-2">
+                    Let's Talk
+                    <span id="nav-chat-badge" class="hidden bg-emerald-500 text-black text-[10px] font-extrabold h-4.5 w-4.5 rounded-full flex items-center justify-center animate-pulse px-1.5 py-0.5">0</span>
+                </a>
             </div>
         </div>
     </nav>
@@ -87,9 +90,6 @@
             <div class="mt-10 flex flex-wrap justify-center gap-4">
                 <a href="#projects" class="px-8 py-4 rounded-full bg-zinc-100 hover:bg-white text-black font-semibold transition-all shadow-[0_0_20px_rgba(255,255,255,0.05)] hover:shadow-[0_0_30px_rgba(255,255,255,0.1)] hover:scale-105">
                     View My Work
-                </a>
-                <a href="{{ route('chat.country') }}" class="px-8 py-4 rounded-full bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-white font-semibold transition-all hover:scale-105">
-                    Private Chat
                 </a>
                 <a href="#contact-form" class="px-8 py-4 rounded-full bg-gradient-to-r from-sky-500 to-indigo-500 hover:from-sky-600 hover:to-indigo-600 text-white font-semibold transition-all hover:scale-105 shadow-[0_0_20px_rgba(59,130,246,0.3)] hover:shadow-[0_0_30px_rgba(59,130,246,0.4)]">
                     Contact Me
@@ -417,12 +417,13 @@
 
     <script>
         document.addEventListener('DOMContentLoaded', () => {
-            const toggleBtns = document.querySelectorAll('a[href="#contact"]:not([href*="chat.country"])');
+            const toggleBtns = document.querySelectorAll('a[href="#contact"]');
             const widget = document.getElementById('wa-widget');
             const closeBtn = document.getElementById('close-wa-btn');
             const messagesDiv = document.getElementById('wa-messages');
             const inputField = document.getElementById('wa-input');
             const sendBtn = document.getElementById('wa-send');
+            const badge = document.getElementById('nav-chat-badge');
 
             let deviceId = localStorage.getItem('chat_device_id');
             if (!deviceId) {
@@ -432,10 +433,34 @@
 
             let pollInterval = null;
 
+            async function checkUnreadCount() {
+                if (!widget.classList.contains('hidden')) {
+                    if (badge) badge.classList.add('hidden');
+                    return;
+                }
+                try {
+                    const res = await fetch('/chat/unread-count', {
+                        headers: { 'X-Device-Id': deviceId, 'Accept': 'application/json' }
+                    });
+                    const data = await res.json();
+                    const count = data.unread_count || 0;
+                    if (count > 0 && badge) {
+                        badge.innerText = count;
+                        badge.classList.remove('hidden');
+                    } else if (badge) {
+                        badge.classList.add('hidden');
+                    }
+                } catch (e) { console.error('Error fetching unread count', e); }
+            }
+
+            checkUnreadCount();
+            setInterval(checkUnreadCount, 10000);
+
             toggleBtns.forEach(btn => {
                 btn.addEventListener('click', (e) => {
                     e.preventDefault(); 
                     widget.classList.remove('hidden');
+                    if (badge) badge.classList.add('hidden');
                     fetchMessages();
                     if(!pollInterval) {
                         pollInterval = setInterval(fetchMessages, 3000);

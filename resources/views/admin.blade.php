@@ -46,7 +46,7 @@
             <a href="/" class="text-xl font-bold tracking-tight text-white hover:opacity-80 transition-opacity">Dev<span class="text-sky-500">Portfolio</span></a>
             <div class="flex items-center space-x-4">
                 <a href="/admin" class="px-5 py-2.5 text-sm font-semibold rounded-full {{ request()->is('admin') ? 'bg-zinc-900 border-zinc-800 text-white' : 'text-zinc-400 hover:text-white' }} border border-transparent hidden sm:block transition-colors">Form Submissions</a>
-                <a href="/admin/chat" class="px-5 py-2.5 text-sm font-semibold rounded-full {{ request()->is('admin/chat') ? 'bg-zinc-900 border-zinc-800 text-white' : 'text-zinc-400 hover:text-white' }} border border-transparent hidden sm:block transition-colors">Private Chat</a>
+                <a href="/admin/chat" class="px-5 py-2.5 text-sm font-semibold rounded-full {{ request()->is('admin/chat') ? 'bg-zinc-900 border-zinc-800 text-white' : 'text-zinc-400 hover:text-white' }} border border-transparent hidden sm:block transition-colors">Live Chat</a>
                 <form action="{{ route('logout') }}" method="POST">
                     @csrf
                     <button type="submit" class="px-5 py-2.5 text-sm font-semibold rounded-full bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-400 transition-all">Sign Out</button>

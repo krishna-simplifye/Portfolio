@@ -17,11 +17,7 @@ class ContactController extends Controller
             'email.unique' => 'You have already filled this form.',
         ]);
 
-        $contact = new Contact();
-        $contact->name = $validated['name'];
-        $contact->email = $validated['email'];
-        $contact->message = $validated['message'];
-        $contact->save();
+        Contact::create($validated);
 
         return redirect()->back()->with('success', 'You have successfully filled this form.');
     }

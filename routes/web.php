@@ -15,16 +15,11 @@ Route::get('/login', [AuthController::class, 'showLogin'])->name('login');
 Route::post('/login', [AuthController::class, 'login']);
 Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
 
-// Chat process routes
-Route::get('/chat/country', [ChatController::class, 'showCountrySelection'])->name('chat.country');
-Route::post('/chat/country', [ChatController::class, 'storeCountry'])->name('chat.country.store');
-Route::get('/chat/reason', [ChatController::class, 'showReasonPage'])->name('chat.reason');
-Route::post('/chat/reason', [ChatController::class, 'storeReason'])->name('chat.reason.store');
-Route::get('/chat/start', [ChatController::class, 'startChat'])->name('chat.start');
 
 // Chat routes for guest
 Route::get('/chat/messages', [ChatController::class, 'fetchMessages'])->name('chat.fetch');
 Route::post('/chat/message', [ChatController::class, 'sendMessage'])->name('chat.send');
+Route::get('/chat/unread-count', [ChatController::class, 'unreadCount'])->name('chat.unread_count');
 
 Route::middleware('auth')->group(function () {
     Route::get('/admin', function () {

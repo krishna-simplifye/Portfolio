@@ -6,10 +6,11 @@ use Illuminate\Database\Eloquent\Model;
 
 class ChatMessage extends Model
 {
-    protected $fillable = ['chat_conversation_id', 'is_admin', 'message'];
+    protected $fillable = ['chat_conversation_id', 'is_admin', 'message', 'is_read'];
 
     protected $casts = [
         'is_admin' => 'boolean',
+        'is_read' => 'boolean',
     ];
 
     public function conversation()

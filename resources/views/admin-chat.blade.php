@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Admin Dashboard | Private Chat</title>
+    <title>Admin Dashboard | Live Chat</title>
 
     <meta name="csrf-token" content="{{ csrf_token() }}">
 
@@ -30,6 +30,11 @@
                               linear-gradient(to bottom, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
             background-size: 3rem 3rem;
         }
+        /* Custom scrollbar */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #374151; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: #4b5563; }
     </style>
 </head>
 <body class="bg-black text-zinc-100 antialiased min-h-screen relative overflow-hidden flex flex-col">
@@ -45,7 +50,7 @@
             <a href="/" class="text-xl font-bold tracking-tight text-white hover:opacity-80 transition-opacity">Dev<span class="text-sky-500">Portfolio</span></a>
             <div class="flex items-center space-x-4">
                 <a href="/admin" class="px-4 py-2 text-sm font-semibold rounded-full {{ request()->is('admin') ? 'bg-zinc-900 border-zinc-800 text-white' : 'text-zinc-400 hover:text-white' }} border border-transparent hidden sm:block transition-colors">Form Submissions</a>
-                <a href="/admin/chat" class="px-4 py-2 text-sm font-semibold rounded-full {{ request()->is('admin/chat') ? 'bg-zinc-900 border-zinc-800 text-white' : 'text-zinc-400 hover:text-white' }} border border-transparent hidden sm:block transition-colors">Private Chat</a>
+                <a href="/admin/chat" class="px-4 py-2 text-sm font-semibold rounded-full {{ request()->is('admin/chat') ? 'bg-zinc-900 border-zinc-800 text-white' : 'text-zinc-400 hover:text-white' }} border border-transparent hidden sm:block transition-colors">Live Chat</a>
                 
                 <form action="{{ route('logout') }}" method="POST">
                     @csrf
@@ -56,8 +61,8 @@
     </nav>
 
     <!-- Chat Interface -->
-    <main class="flex-1 max-w-5xl mx-auto w-full px-6 py-6 flex overflow-hidden" style="height: calc(100vh - 8rem);">
-        <div class="w-full h-full bg-[#111b21] rounded-2xl border border-zinc-800 shadow-2xl flex overflow-hidden max-h-[600px]">
+    <main class="flex-1 max-w-5xl mx-auto w-full px-6 py-6 flex flex-col min-h-0 overflow-hidden">
+        <div class="w-full flex-1 bg-[#111b21] rounded-2xl border border-zinc-800 shadow-2xl flex overflow-hidden max-h-[600px] min-h-[400px]">
             
             <!-- Sidebar / Conversations List -->
             <div id="conversations-sidebar" class="w-1/3 border-r border-zinc-800 flex flex-col bg-[#111b21] h-full">
@@ -85,14 +90,16 @@
                 </div>
 
                 <!-- Empty State -->
-                <div id="empty-state" class="absolute inset-0 flex flex-col items-center justify-center text-center bg-[#111b21] z-10">
-                    <svg class="w-20 h-20 text-zinc-700 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path></svg>
-                    <h2 class="text-xl font-bold text-zinc-400">Select a conversation</h2>
-                    <p class="text-zinc-500 text-sm mt-2">Click on any chat from the left to start messaging.</p>
+                <div id="empty-state" class="absolute inset-0 flex items-center justify-center bg-[#111b21] z-10 p-4">
+                    <div class="flex flex-col items-center text-center max-h-full overflow-y-auto">
+                        <svg class="w-12 h-12 md:w-16 md:h-16 text-zinc-700 mb-3 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"></path></svg>
+                        <h2 class="text-lg md:text-xl font-bold text-zinc-400">Select a conversation</h2>
+                        <p class="text-zinc-500 text-xs md:text-sm mt-1">Click on any chat from the left to start messaging.</p>
+                    </div>
                 </div>
 
                 <!-- Messages -->
-                <div id="chat-messages" class="flex-1 overflow-y-auto p-4 space-y-3 hidden min-h-0" style="min-height: 150px; max-height: 350px; overflow-y: scroll !important;">
+                <div id="chat-messages" class="flex-1 overflow-y-auto p-4 space-y-3 hidden min-h-0">
                     <!-- Messages will be injected here -->
                 </div>
 
@@ -177,11 +184,14 @@
                 }
                 
                 const html = convs.map(c => {
-                    console.log('Processing conversation:', c); // Debug log
                     const isActive = c.id === activeConvId;
                     const snippet = c.latest_message ? (c.latest_message.length > 30 ? c.latest_message.substring(0,30)+'...' : c.latest_message) : 'New chat started';
                     const time = c.last_message_at ? new Date(c.last_message_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : '';
                     const mobile = c.client_mobile || 'No mobile';
+
+                    const badgeHtml = c.unread_count > 0 
+                        ? `<span class="bg-emerald-600 text-white text-[10px] font-bold h-5 min-w-[20px] rounded-full flex items-center justify-center px-1.5">${c.unread_count}</span>` 
+                        : '';
                     
                     return `
                         <div class="conv-item p-4 cursor-pointer transition-colors ${isActive ? 'bg-[#2a3942]' : 'hover:bg-[#202c33]'}" data-id="${c.id}" data-session="${c.session_id}" data-mobile="${mobile}">
@@ -189,7 +199,10 @@
                                 <h4 class="text-white font-medium text-sm truncate">Client: ${mobile}</h4>
                                 <span class="text-xs text-emerald-500">${time}</span>
                             </div>
-                            <p class="text-xs text-zinc-400 truncate">${snippet}</p>
+                            <div class="flex justify-between items-center">
+                                <p class="text-xs text-zinc-400 truncate pr-2 flex-1">${snippet}</p>
+                                ${badgeHtml}
+                            </div>
                         </div>
                     `;
                 }).join('');
@@ -211,6 +224,7 @@
                 if(pollInterval) clearInterval(pollInterval);
                 
                 activeConvId = id;
+                lastMessageCount = 0; // Reset message count tracking for auto-scrolling
                 chatTitle.innerText = `Client: ${mobile}`;
                 
                 emptyStateDiv.classList.add('hidden');

@@ -8,55 +8,6 @@ use Illuminate\Http\Request;
 
 class ChatController extends Controller
 {
-    // === CHAT PROCESS METHODS ===
-
-    public function showCountrySelection()
-    {
-        return view('chat.country');
-    }
-
-    public function storeCountry(Request $request)
-    {
-        $request->validate([
-            'country' => 'required|string|max:100',
-            'mobile' => 'required|string|max:20'
-        ]);
-
-        session(['chat_country' => $request->country, 'chat_mobile' => $request->mobile]);
-        
-        return redirect()->route('chat.reason');
-    }
-
-    public function showReasonPage()
-    {
-        if (!session('chat_country') || !session('chat_mobile')) {
-            return redirect()->route('chat.country');
-        }
-
-        return view('chat.reason');
-    }
-
-    public function storeReason(Request $request)
-    {
-        $request->validate(['reason' => 'required|string|max:500']);
-
-        session(['chat_reason' => $request->reason]);
-        
-        return redirect()->route('chat.start');
-    }
-
-    public function startChat(Request $request)
-    {
-        if (!session('chat_country') || !session('chat_mobile') || !session('chat_reason')) {
-            return redirect()->route('chat.country');
-        }
-
-        // Store the chat information in session for later use
-        session(['chat_verified' => true]);
-
-        return view('chat.start');
-    }
-
     // === GUEST / CLIENT ENDPOINTS ===
 
     public function fetchMessages(Request $request)
@@ -67,7 +18,34 @@ class ChatController extends Controller
         }
 
         $conversation = ChatConversation::firstOrCreate(['session_id' => $deviceId]);
+        
+        // Mark all admin messages as read when fetched by guest
+        $conversation->messages()
+            ->where('is_admin', true)
+            ->where('is_read', false)
+            ->update(['is_read' => true]);
+
         return response()->json(['messages' => $conversation->messages()->orderBy('created_at', 'asc')->get()]);
+    }
+
+    public function unreadCount(Request $request)
+    {
+        $deviceId = $request->header('X-Device-Id');
+        if (!$deviceId) {
+            return response()->json(['unread_count' => 0]);
+        }
+
+        $conversation = ChatConversation::where('session_id', $deviceId)->first();
+        if (!$conversation) {
+            return response()->json(['unread_count' => 0]);
+        }
+
+        $unreadCount = $conversation->messages()
+            ->where('is_admin', true)
+            ->where('is_read', false)
+            ->count();
+
+        return response()->json(['unread_count' => $unreadCount]);
     }
 
     public function sendMessage(Request $request)
@@ -90,7 +68,8 @@ class ChatController extends Controller
         
         $message = $conversation->messages()->create([
             'is_admin' => false,
-            'message' => $request->message
+            'message' => $request->message,
+            'is_read' => false
         ]);
 
         $conversation->update(['last_message_at' => now()]);
@@ -113,6 +92,11 @@ class ChatController extends Controller
             ->orderBy('last_message_at', 'desc')
             ->get()
             ->map(function($conv) {
+                $unreadCount = $conv->messages()
+                    ->where('is_admin', false)
+                    ->where('is_read', false)
+                    ->count();
+
                 return [
                     'id' => $conv->id,
                     'session_id' => $conv->session_id,
@@ -121,6 +105,7 @@ class ChatController extends Controller
                     'client_reason' => $conv->client_reason,
                     'last_message_at' => $conv->last_message_at,
                     'latest_message' => $conv->messages->first() ? $conv->messages->first()->message : '',
+                    'unread_count' => $unreadCount,
                 ];
             });
 
@@ -129,6 +114,12 @@ class ChatController extends Controller
 
     public function adminFetchMessages(ChatConversation $conversation)
     {
+        // Mark all client messages in this conversation as read when fetched by admin
+        $conversation->messages()
+            ->where('is_admin', false)
+            ->where('is_read', false)
+            ->update(['is_read' => true]);
+
         return response()->json(['messages' => $conversation->messages()->orderBy('created_at', 'asc')->get()]);
     }
 
@@ -138,7 +129,8 @@ class ChatController extends Controller
 
         $message = $conversation->messages()->create([
             'is_admin' => true,
-            'message' => $request->message
+            'message' => $request->message,
+            'is_read' => false
         ]);
 
         $conversation->update(['last_message_at' => now()]);

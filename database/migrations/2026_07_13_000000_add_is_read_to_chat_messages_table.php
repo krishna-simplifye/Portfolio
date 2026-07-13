@@ -11,8 +11,8 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('chat_conversations', function (Blueprint $table) {
-            //
+        Schema::table('chat_messages', function (Blueprint $table) {
+            $table->boolean('is_read')->default(false)->after('message');
         });
     }
 
@@ -21,8 +21,8 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::table('chat_conversations', function (Blueprint $table) {
-            //
+        Schema::table('chat_messages', function (Blueprint $table) {
+            $table->dropColumn('is_read');
         });
     }
 };
